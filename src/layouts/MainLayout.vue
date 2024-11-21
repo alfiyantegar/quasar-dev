@@ -10,32 +10,39 @@
           aria-label="Menu"
           @click="toggleLeftDrawer"
         />
-
-        <q-toolbar-title>
-          Quasar App
-        </q-toolbar-title>
-
-        <div>Quasar v{{ $q.version }}</div>
+        <q-toolbar-title>{{ pageTitle }}</q-toolbar-title>
+        <q-btn
+          flat
+          dense
+          class="q-ml-auto q-hoverable logout-btn"
+          color="negative"
+          label="Logout"
+          @click="logout"
+        >
+          <q-icon name="logout" />
+        </q-btn>
       </q-toolbar>
     </q-header>
 
-    <q-drawer
-      v-model="leftDrawerOpen"
-      show-if-above
-      bordered
-    >
+    <q-drawer v-model="leftDrawerOpen" show-if-above bordered>
       <q-list>
-        <q-item-label
-          header
-        >
-          Essential Links
-        </q-item-label>
-
-        <EssentialLink
+        <q-item-label header class="text-h6 q-mb-md">Menu</q-item-label>
+        <q-item
           v-for="link in linksList"
           :key="link.title"
-          v-bind="link"
-        />
+          :to="link.link"
+          exact
+          clickable
+          class="q-mb-md q-hoverable menu-item"
+        >
+          <q-item-section avatar>
+            <q-icon :name="link.icon" size="32px" class="q-mr-sm" />
+          </q-item-section>
+          <q-item-section>
+            <q-item-label>{{ link.title }}</q-item-label>
+            <q-item-caption>{{ link.caption }}</q-item-caption>
+          </q-item-section>
+        </q-item>
       </q-list>
     </q-drawer>
 
@@ -46,61 +53,135 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import EssentialLink from 'components/EssentialLink.vue'
+import { ref, computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
-defineOptions({
-  name: 'MainLayout'
-})
+// Define state
+const leftDrawerOpen = ref(false);
+const router = useRouter();
+const route = useRoute();
 
-const linksList = [
+// Get role from localStorage
+const role = localStorage.getItem("role") || "guest"; // Fallback to guest if not found
+
+// Define links for Admin and User based on role
+const adminLinks = [
   {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev'
+    title: "Dashboard",
+    icon: "dashboard",
+    link: "/dashboard",
+    caption: "Admin Overview",
   },
   {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework'
+    title: "Daftar Barang",
+    icon: "inventory",
+    link: "/daftarbarang",
+    caption: "Manage Items",
   },
   {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev'
+    title: "Riwayat Peminjaman",
+    icon: "history",
+    link: "/riwayatpeminjaman",
+    caption: "Loan History",
+  },
+];
+
+const userLinks = [
+  {
+    title: "Dashboard User",
+    icon: "dashboard",
+    link: "/dashboarduser",
+    caption: "User Overview",
   },
   {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev'
+    title: "Riwayat Peminjaman User",
+    icon: "history",
+    link: "/riwayatpeminjamanuser",
+    caption: "User Loan History",
   },
+];
+
+const guestLinks = [
   {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev'
+    title: "Login",
+    icon: "login",
+    link: "/login",
+    caption: "Access Your Account",
   },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev'
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev'
+];
+
+// Dynamic links list based on role
+const linksList = computed(() => {
+  if (role === "admin") return adminLinks;
+  if (role === "user") return userLinks;
+  return guestLinks; // Default to guest links
+});
+
+// Page title based on route
+const pageTitle = computed(() => {
+  switch (route.path) {
+    case "/dashboard":
+      return "Admin Dashboard";
+    case "/daftarbarang":
+      return "Daftar Barang Admin";
+    case "/riwayatpeminjaman":
+      return "Riwayat Peminjaman Admin";
+    case "/dashboarduser":
+      return "User Dashboard";
+    case "/riwayatpeminjamanuser":
+      return "Riwayat Peminjaman User";
+    default:
+      return "Peminjaman System";
   }
-]
+});
 
-const leftDrawerOpen = ref(false)
+// Logout function
+function logout() {
+  localStorage.removeItem("role");
+  router.push("/login"); // Redirect to login page
+}
 
-function toggleLeftDrawer () {
-  leftDrawerOpen.value = !leftDrawerOpen.value
+// Toggle left drawer visibility
+function toggleLeftDrawer() {
+  leftDrawerOpen.value = !leftDrawerOpen.value;
 }
 </script>
+
+<style scoped>
+.q-toolbar {
+  background-color: #1976d2;
+  color: white;
+}
+
+.q-drawer {
+  background-color: #f5f5f5;
+}
+
+.q-item-label {
+  font-weight: bold;
+  color: #333;
+}
+
+.q-list {
+  padding: 20px;
+}
+
+.menu-item:hover {
+  background-color: #e3f2fd;
+  border-radius: 8px;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+.logout-btn {
+  background-color: #ffebee;
+  border-radius: 8px;
+  padding: 8px 16px;
+  border: 2px solid #ff5722;
+  color: #1976d2;
+  transition: transform 0.2s;
+}
+
+.logout-btn:hover {
+  transform: scale(1.05);
+}
+</style>
