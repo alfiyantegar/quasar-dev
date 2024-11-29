@@ -1,5 +1,6 @@
 <template>
   <q-page>
+    <!-- Tabel Daftar Barang -->
     <q-table
       :rows="items"
       :columns="columns"
@@ -11,6 +12,7 @@
           @click="showAddModal"
           label="Tambah Barang Baru"
           color="primary"
+          icon="add"
         />
       </template>
 
@@ -22,12 +24,14 @@
             label="Edit"
             color="primary"
             @click="editItem(props.row)"
+            icon="edit"
           />
           <q-btn
             flat
             label="Hapus"
             color="negative"
             @click="confirmDelete(props.row.id)"
+            icon="delete"
           />
         </q-td>
       </template>
@@ -36,14 +40,13 @@
       <template v-slot:body-cell-photo="props">
         <q-td :props="props">
           <div class="q-gutter-sm flex items-center">
-            <img
-              v-if="props.row.photo"
-              :src="props.row.photo"
-              alt="Foto Barang"
-              width="50"
-              height="50"
-            />
-            <span v-else>No Image</span>
+            <q-avatar size="40px">
+              <img
+                v-if="props.row.photo"
+                :src="props.row.photo"
+                alt="Foto Barang"
+              />
+            </q-avatar>
           </div>
         </q-td>
       </template>
@@ -56,12 +59,28 @@
           <q-input
             v-model="itemForm.name"
             label="Nama Barang"
-            :disabled="itemForm.id !== null"
+            :disabled="isFormDisabled"
             :rules="['required']"
+            class="q-mb-md"
           />
-          <q-input v-model="itemForm.merk" label="Merk Barang" />
-          <q-input v-model="itemForm.code" label="Kode Barang" />
-          <q-input v-model="itemForm.description" label="Deskripsi Barang" />
+          <q-input
+            v-model="itemForm.merk"
+            label="Merk Barang"
+            :disabled="isFormDisabled"
+            class="q-mb-md"
+          />
+          <q-input
+            v-model="itemForm.code"
+            label="Kode Barang"
+            :disabled="isFormDisabled"
+            class="q-mb-md"
+          />
+          <q-input
+            v-model="itemForm.description"
+            label="Deskripsi Barang"
+            :disabled="isFormDisabled"
+            class="q-mb-md"
+          />
 
           <!-- Dropdown untuk Jenis Barang -->
           <q-select
@@ -70,6 +89,8 @@
             label="Jenis Barang"
             emit-value
             map-options
+            :disable="isFormDisabled"
+            class="q-mb-md"
           />
 
           <!-- Label Foto Barang dan input untuk upload gambar -->
@@ -78,11 +99,19 @@
             type="file"
             @change="handleFileChange"
             accept="image/*"
+            :disable="isFormDisabled"
+            class="q-mb-md"
           />
         </q-card-section>
         <q-card-actions align="right">
-          <q-btn flat label="Batal" @click="isModalOpen = false" />
-          <q-btn flat label="Simpan" color="primary" @click="saveItem" />
+          <q-btn flat label="Batal" @click="closeModal" />
+          <q-btn
+            flat
+            label="Simpan"
+            color="primary"
+            @click="saveItem"
+            :disable="isFormDisabled"
+          />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -96,7 +125,8 @@ export default {
   data() {
     return {
       isModalOpen: false,
-      items: [],
+      isFormDisabled: false, // Track if the form should be disabled
+      items: [], // Array untuk menyimpan data barang
       itemForm: {
         id: null,
         name: "",
@@ -138,6 +168,7 @@ export default {
     showAddModal() {
       this.isModalOpen = true;
       this.resetItemForm();
+      this.isFormDisabled = false; // Enable form for adding
     },
     resetItemForm() {
       this.itemForm = {
@@ -149,6 +180,9 @@ export default {
         jenisbarang: null,
         photo: null,
       };
+    },
+    closeModal() {
+      this.isModalOpen = false;
     },
     async saveItem() {
       if (!this.itemForm.name) {
@@ -163,6 +197,8 @@ export default {
         formData.append("code", this.itemForm.code);
         formData.append("description", this.itemForm.description);
         formData.append("jenisbarang", this.itemForm.jenisbarang);
+        formData.append("status", "Tersedia");
+
         if (this.itemForm.photo) {
           formData.append("photo", this.itemForm.photo);
         }
@@ -181,7 +217,7 @@ export default {
           });
         }
         this.isModalOpen = false;
-        this.fetchItems(); // Refresh data setelah menyimpan
+        this.fetchItems(); // Fetch updated data after saving
       } catch (error) {
         console.error("Error saving item:", error);
         alert("Terjadi kesalahan saat menyimpan barang.");
@@ -190,6 +226,7 @@ export default {
     async editItem(item) {
       this.isModalOpen = true;
       this.itemForm = { ...item };
+      this.isFormDisabled = false; // Enable form for editing
     },
     async confirmDelete(id) {
       const confirm = window.confirm(
@@ -201,12 +238,16 @@ export default {
     },
     async deleteItem(id) {
       try {
+        this.isFormDisabled = true; // Disable form when deleting
         await axios.delete(`http://localhost:8000/api/daftarbarang/${id}`);
         this.items = this.items.filter((item) => item.id !== id);
         alert("Barang berhasil dihapus.");
+        this.isModalOpen = false;
       } catch (error) {
         console.error("Error deleting item:", error);
         alert("Terjadi kesalahan saat menghapus barang.");
+      } finally {
+        this.isFormDisabled = false; // Re-enable form after deletion
       }
     },
     handleFileChange(event) {
@@ -218,7 +259,8 @@ export default {
         const response = await axios.get(
           "http://localhost:8000/api/daftarbarang"
         );
-        this.items = response.data;
+        console.log(response.data); // Cek data yang diterima
+        this.items = response.data.data;
       } catch (error) {
         console.error("Error fetching items:", error);
       }
@@ -229,15 +271,3 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-.q-page {
-  padding: 20px;
-}
-
-.q-card-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-</style>

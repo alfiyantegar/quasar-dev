@@ -14,24 +14,19 @@
     <div class="q-gutter-md row">
       <div
         v-for="item in filteredItems"
-        :key="item.id"
+        :key="item.idbarang"
         class="col-xs-12 col-sm-6 col-md-4"
       >
         <q-card>
           <q-img
-            :src="item.photo"
+            :src="item.photo ? item.photo : defaultImagePath(item.jenisbarang)"
             alt="Foto Barang"
             ratio="16/9"
-            :fallback-src="'path/to/default-image.jpg'"
           />
           <q-card-section>
             <div class="text-h6">{{ item.name }}</div>
             <div class="text-subtitle1">{{ item.merk }}</div>
-            <div>Nama Barang: {{ item.name }}</div>
-            <div>Merk: {{ item.merk }}</div>
-            <div>Kode Barang: {{ item.code }}</div>
-            <div>Deskripsi: {{ item.description }}</div>
-            <div>Jenis Barang: {{ item.jenisbarang }}</div>
+            <div>Jenis: {{ item.jenisbarang }}</div>
             <div>Status: {{ item.status }}</div>
           </q-card-section>
           <q-card-actions align="right">
@@ -102,48 +97,53 @@ export default {
       isReturnModalOpen: false,
       items: [],
       selectedItemId: null,
-      selectedItem: null,
       returnItemId: null,
-      returnItemData: null,
-      availableItems: [],
-      availableReturnItems: [],
       tanggalPinjam: null,
       tanggalKembali: null,
-      filterJenis: "Semua", // Inisialisasi dengan string
-      validUserId: null, // Simpan ID pengguna yang valid
+      filterJenis: "Semua",
+      validUserId: null,
       jenisBarangOptions: [
         { label: "Semua", value: "Semua" },
         { label: "Printer", value: "Printer" },
         { label: "Scanner", value: "Scanner" },
         { label: "PC Unit", value: "PC Unit" },
         { label: "Handphone", value: "Handphone" },
-        { label: "Kendaraan", value: "Kendaraan" },
       ],
     };
   },
   computed: {
     filteredItems() {
       if (this.filterJenis === "Semua") {
-        return this.items; // Tampilkan semua barang
-      } else {
-        return this.items.filter(
-          (item) => item.jenisbarang === this.filterJenis
-        );
+        return this.items;
       }
+      return this.items.filter((item) => item.jenisbarang === this.filterJenis);
     },
   },
   methods: {
+    defaultImagePath(jenisbarang) {
+      switch (jenisbarang) {
+        case "Printer":
+          return "path/to/default-printer.jpg";
+        case "Scanner":
+          return "path/to/default-scanner.jpg";
+        case "PC Unit":
+          return "path/to/default-pc.jpg";
+        case "Handphone":
+          return "path/to/default-handphone.jpg";
+        default:
+          return "path/to/default-image.jpg";
+      }
+    },
     async fetchUserId() {
       try {
         const response = await axios.get("http://localhost:8000/api/login");
         if (response.data && response.data.length > 0) {
-          this.validUserId = response.data[0].iduser; // Ambil ID pengguna
+          this.validUserId = response.data[0].iduser;
         } else {
           alert("ID pengguna tidak ditemukan.");
         }
       } catch (error) {
         console.error("Error fetching user ID:", error);
-        alert("Terjadi kesalahan saat mengambil ID pengguna.");
       }
     },
     async fetchItems() {
@@ -152,129 +152,72 @@ export default {
           "http://localhost:8000/api/daftarbarang"
         );
         this.items = response.data;
-
-        this.availableItems = this.items
-          .filter((item) => item.status === "Tersedia")
-          .map((item) => ({
-            label: item.name,
-            value: item.id,
-          }));
-
-        this.availableReturnItems = this.items
-          .filter((item) => item.status === "Dipinjam")
-          .map((item) => ({
-            label: item.name,
-            value: item.id,
-          }));
       } catch (error) {
         console.error("Error fetching items:", error);
-        alert(
-          "Terjadi kesalahan saat mengambil data barang. Silakan coba lagi."
-        );
       }
     },
     handleBorrowClick(item) {
-      if (item.status === "Diproses") {
-        alert("Barang masih dalam proses peminjaman atau pengembalian");
-      } else if (item.status === "Dipinjam") {
-        alert("Barang sedang Dipinjam");
-      } else {
-        this.showBorrowModal(item.id);
-      }
+      this.selectedItemId = item.idbarang;
+      this.isModalOpen = true;
     },
     handleReturnClick(item) {
-      if (item.status === "Diproses") {
-        alert("Barang masih dalam proses peminjaman atau pengembalian");
-      } else if (item.status === "Tersedia") {
-        alert("Barang sedang Tersedia");
-      } else {
-        this.showReturnModal(item.id);
-      }
+      this.returnItemId = item.idbarang;
+      this.isReturnModalOpen = true;
     },
     isBorrowDisabled(item) {
-      return item.status === "Diproses" || item.status === "Dipinjam";
+      return item.status !== "Tersedia";
     },
     isReturnDisabled(item) {
-      return item.status === "Diproses" || item.status === "Tersedia";
-    },
-    showBorrowModal(itemId) {
-      this.isModalOpen = true;
-      this.selectedItemId = itemId; // Simpan ID item yang dipilih
-      this.tanggalPinjam = null; // Reset tanggal pinjam
+      return item.status !== "Dipinjam";
     },
     async borrowItem() {
-      if (this.selectedItemId && this.tanggalPinjam) {
-        try {
-          const keterangan = `Dipinjam pada ${this.tanggalPinjam}`;
-
-          await axios.post("http://localhost:8000/api/riwayatpeminjaman", {
-            id: this.selectedItemId,
-            iduser: this.validUserId, // Gunakan ID pengguna yang valid
-            tanggal_pinjam: this.tanggalPinjam,
-            tanggal_kembali: null,
-            keterangan: keterangan,
-            status: "Diproses",
-          });
-
-          await axios.put(
-            `http://localhost:8000/api/daftarbarang/pinjam/${this.selectedItemId}`
-          );
-
-          alert("Barang berhasil dipinjam!");
-          this.isModalOpen = false;
-          this.fetchItems();
-        } catch (error) {
-          console.error("Error borrowing item:", error);
-          alert("Terjadi kesalahan saat meminjam barang. Silakan coba lagi.");
-        }
-      } else {
-        alert("Silakan pilih barang dan masukkan tanggal pinjam.");
+      try {
+        const keterangan = `Dipinjam pada ${this.tanggalPinjam}`;
+        await axios.post("http://localhost:8000/api/riwayatpeminjaman", {
+          idbarang: this.selectedItemId,
+          iduser: this.validUserId,
+          tanggal_pinjam: this.tanggalPinjam,
+          status: "Diproses",
+          keterangan,
+        });
+        await axios.put(
+          `http://localhost:8000/api/daftarbarang/pinjam/${this.selectedItemId}`
+        );
+        this.isModalOpen = false;
+        this.fetchItems();
+        alert("Barang berhasil dipinjam.");
+      } catch (error) {
+        console.error("Error borrowing item:", error);
       }
     },
-    showReturnModal(itemId) {
-      this.isReturnModalOpen = true;
-      this.returnItemId = itemId; // Simpan ID item yang dipilih
-      this.tanggalKembali = null; // Reset tanggal kembali
-    },
     async returnItem() {
-      if (this.returnItemId && this.tanggalKembali) {
-        try {
-          const keterangan = `Dikembalikan pada ${this.tanggalKembali}`;
-
-          await axios.post("http://localhost:8000/api/riwayatpeminjaman", {
-            id: this.returnItemId,
-            iduser: this.validUserId, // Gunakan ID pengguna yang valid
-            tanggal_pinjam: this.returnItemData.tanggal_pinjam,
-            tanggal_kembali: this.tanggalKembali,
-            keterangan: keterangan,
-            status: "Disetujui",
-          });
-
-          await axios.put(
-            `http://localhost:8000/api/daftarbarang/kembalikan/${this.returnItemId}`
-          );
-
-          alert("Barang berhasil dikembalikan!");
-          this.isReturnModalOpen = false;
-          this.fetchItems();
-        } catch (error) {
-          console.error("Error returning item:", error);
-          alert(
-            "Terjadi kesalahan saat mengembalikan barang. Silakan coba lagi."
-          );
-        }
-      } else {
-        alert("Silakan pilih barang dan masukkan tanggal kembali.");
+      try {
+        const keterangan = `Dikembalikan pada ${this.tanggalKembali}`;
+        await axios.post("http://localhost:8000/api/riwayatpeminjaman", {
+          idbarang: this.returnItemId,
+          iduser: this.validUserId,
+          tanggal_kembali: this.tanggalKembali,
+          status: "Disetujui",
+          keterangan,
+        });
+        await axios.put(
+          `http://localhost:8000/api/daftarbarang/kembalikan/${this.returnItemId}`
+        );
+        this.isReturnModalOpen = false;
+        this.fetchItems();
+        alert("Barang berhasil dikembalikan.");
+      } catch (error) {
+        console.error("Error returning item:", error);
       }
     },
   },
   mounted() {
-    this.fetchUserId(); // Ambil ID pengguna saat komponen dimuat
-    this.fetchItems(); // Ambil daftar barang saat komponen dimuat
+    this.fetchUserId();
+    this.fetchItems();
   },
 };
 </script>
 
 <style scoped>
-/* Tambahkan gaya CSS sesuai kebutuhan */
+/* Sesuaikan gaya sesuai kebutuhan */
 </style>
